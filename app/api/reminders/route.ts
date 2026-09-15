@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, lt, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { getDb } from "../../../db";
 import { reminders } from "../../../db/schema";
+import { createReminder } from "@/lib/reminders";
 import { scheduleTelegramDelivery } from "@/lib/telegram";
 
 async function ownerId() {
@@ -41,26 +42,16 @@ export async function POST(request: Request) {
       request?: string; title?: string; dueAt?: string; timezone?: string;
       notes?: string; link?: string; emailNotify?: boolean; phoneNotify?: boolean;
     };
-    const title = body.title?.trim() ?? "";
-    const dueAt = body.dueAt ?? "";
-    const timezone = body.timezone?.trim() ?? "";
-    const original = body.request?.trim() ?? "";
-    if (!title || !original || !timezone || Number.isNaN(Date.parse(dueAt))) {
-      return Response.json({ error: "Reminder text and a valid time are required." }, { status: 400 });
-    }
-    const [created] = await getDb().insert(reminders).values({
-      ownerId: owner, request: original, title, dueAt, timezone,
-      notes: body.notes?.trim() ?? "", link: body.link?.trim() ?? "",
-      emailNotify: Boolean(body.emailNotify), phoneNotify: Boolean(body.phoneNotify),
-      createdAt: new Date().toISOString(),
-    }).returning();
-    if (created.phoneNotify) {
-      const scheduled = await scheduleTelegramDelivery(created.id, created.dueAt);
-      if (!scheduled) {
-        await getDb().delete(reminders).where(and(eq(reminders.id, created.id), eq(reminders.ownerId, owner)));
-        return Response.json({ error: "Telegram notification could not be scheduled. The reminder was not saved." }, { status: 502 });
-      }
-    }
+    const created = await createReminder(owner, {
+      request: body.request ?? "",
+      title: body.title ?? "",
+      dueAt: body.dueAt ?? "",
+      timezone: body.timezone ?? "",
+      notes: body.notes,
+      link: body.link,
+      emailNotify: body.emailNotify,
+      phoneNotify: body.phoneNotify,
+    });
     return Response.json({ reminder: created }, { status: 201 });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
