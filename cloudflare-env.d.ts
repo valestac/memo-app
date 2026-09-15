@@ -9,5 +9,7 @@ declare namespace Cloudflare {
     MEMO_DELIVERY_SECRET?: string;
     MEMO_BASE_URL?: string;
     OAI_SITES_BYPASS_TOKEN?: string;
+    CHATGPT_INTEGRATION_SECRET?: string;
+    CHATGPT_OWNER_ID?: string;
   }
 }
